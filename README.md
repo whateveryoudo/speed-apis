@@ -1,37 +1,56 @@
-# speed-apis
+# 图片服务
 
-#### 介绍
-提供一些简单服务给speed一些仓库
+一个简单的图片上传和预览服务，使用 Express.js 构建。
 
-#### 软件架构
-软件架构说明
+## 功能特性
 
+- 图片上传接口
+- 带认证的图片预览接口
+- 本地文件存储
 
-#### 安装教程
+## 安装
 
-1.  xxxx
-2.  xxxx
-3.  xxxx
+```bash
+npm install
+```
 
-#### 使用说明
+## 运行
 
-1.  xxxx
-2.  xxxx
-3.  xxxx
+开发模式：
+```bash
+npm run dev
+```
 
-#### 参与贡献
+生产模式：
+```bash
+npm start
+```
 
-1.  Fork 本仓库
-2.  新建 Feat_xxx 分支
-3.  提交代码
-4.  新建 Pull Request
+## API 接口
 
+### 上传图片
 
-#### 特技
+- 方法：POST
+- 路径：/upload
+- 参数：form-data 中的 image 字段
+- 返回：
+  ```json
+  {
+    "message": "上传成功",
+    "filename": "文件名",
+    "path": "/preview/文件名"
+  }
+  ```
 
-1.  使用 Readme\_XXX.md 来支持不同的语言，例如 Readme\_en.md, Readme\_zh.md
-2.  Gitee 官方博客 [blog.gitee.com](https://blog.gitee.com)
-3.  你可以 [https://gitee.com/explore](https://gitee.com/explore) 这个地址来了解 Gitee 上的优秀开源项目
-4.  [GVP](https://gitee.com/gvp) 全称是 Gitee 最有价值开源项目，是综合评定出的优秀开源项目
-5.  Gitee 官方提供的使用手册 [https://gitee.com/help](https://gitee.com/help)
-6.  Gitee 封面人物是一档用来展示 Gitee 会员风采的栏目 [https://gitee.com/gitee-stars/](https://gitee.com/gitee-stars/)
+### 预览图片
+
+- 方法：GET
+- 路径：/preview/:filename
+- 请求头：Authorization: Bearer your-secret-token
+- 返回：图片文件
+
+## 注意事项
+
+1. 请确保在请求预览接口时携带正确的认证信息
+2. 上传的图片将保存在 uploads 目录中
+3. 默认端口为 3000，可通过环境变量 PORT 修改
