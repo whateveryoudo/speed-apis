@@ -26,9 +26,9 @@ class FileStorage {
    * @returns {Object} 文件信息对象
    */
   generateFileInfo(file) {
-    const fieldId = Date.now().toString(36) + Math.random().toString(36).substr(2);
+    const fileId = Date.now().toString(36) + Math.random().toString(36).substr(2);
     return {
-      id: fieldId,
+      id: fileId,
       fileName: file.originalname,
       fileType: file.mimetype,
       fileSize: file.size,
@@ -47,11 +47,11 @@ class FileStorage {
 
   /**
    * 获取文件信息
-   * @param {string} fieldId - 文件ID
+   * @param {string} fileId - 文件ID
    * @returns {Object|null} 文件信息对象
    */
-  getFileInfo(fieldId) {
-    const infoPath = path.join(this.uploadDir, `${fieldId}.json`);
+  getFileInfo(fileId) {
+    const infoPath = path.join(this.uploadDir, `${fileId}.json`);
     if (!fs.existsSync(infoPath)) {
       return null;
     }
@@ -101,8 +101,8 @@ const storage = multer.diskStorage({
     cb(null, fileStorage.uploadDir);
   },
   filename: function (req, file, cb) {
-    const fieldId = Date.now().toString(36) + Math.random().toString(36).substr(2);
-    cb(null, `${fieldId}${path.extname(file.originalname)}`);
+    const fileId = Date.now().toString(36) + Math.random().toString(36).substr(2);
+    cb(null, `${fileId}${path.extname(file.originalname)}`);
   }
 });
 
@@ -138,7 +138,8 @@ router.post('/upload', upload.single('image'), async (req, res) => {
         fileName: fileInfo.fileName,
         fileType: fileInfo.fileType,
         fileSize: fileInfo.fileSize,
-        previewUrl: `/preview/${fileInfo.id}`
+        previewUrl: `/preview/${fileInfo.id}`,
+        downloadUrl: `/download/${fileInfo.id}`
       }
     });
   } catch (error) {
@@ -147,25 +148,65 @@ router.post('/upload', upload.single('image'), async (req, res) => {
   }
 });
 
-// 预览接口
-router.get('/preview/:fieldId', authMiddleware, (req, res) => {
-  const fieldId = req.params.fieldId;
-  const fileInfo = fileStorage.getFileInfo(fieldId);
-  console.log('fileInfo', fileInfo);
+/**
+ * 处理文件访问的通用函数
+ * @param {Object} req - 请求对象
+ * @param {Object} res - 响应对象
+ * @param {boolean} isDownload - 是否为下载模式
+ */
+const handleFileAccess = (req, res, isDownload = false) => {
+  const fileId = req.params.fileId;
+  const fileInfo = fileStorage.getFileInfo(fileId);
+  
   if (!fileInfo) {
     return res.status(404).json({ error: '文件不存在' });
   }
   
   const filePath = fileStorage.getFilePath(fileInfo);
-  
   if (!fs.existsSync(filePath)) {
     return res.status(404).json({ error: '文件不存在' });
   }
   
   // 设置响应头
-  res.setHeader('Content-Type', fileInfo.fileType);
-  res.setHeader('Content-Disposition', `inline; filename="${fileInfo.fileName}"`);
-  res.sendFile(filePath);
+  if (isDownload) {
+    console.log('开始下载文件:', {
+      fileId,
+      fileName: fileInfo.fileName,
+      fileSize: fileInfo.fileSize,
+      filePath
+    });
+
+    res.setHeader('Content-Type', 'application/octet-stream');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileInfo.fileName}"`);
+    res.setHeader('Content-Length', fileInfo.fileSize);
+    
+    // 使用直接读取方式
+    try {
+      const fileContent = fs.readFileSync(filePath);
+      console.log('文件读取完成，大小:', fileContent.length);
+      res.send(fileContent);
+      console.log('文件发送完成');
+    } catch (error) {
+      console.error('文件读取失败:', error);
+      if (!res.headersSent) {
+        res.status(500).json({ error: '文件读取失败' });
+      }
+    }
+  } else {
+    res.setHeader('Content-Type', fileInfo.fileType);
+    res.setHeader('Content-Disposition', `inline; filename="${fileInfo.fileName}"`);
+    res.sendFile(filePath);
+  }
+};
+
+// 预览接口
+router.get('/preview/:fileId', authMiddleware, (req, res) => {
+  handleFileAccess(req, res, false);
+});
+
+// 下载接口
+router.get('/download/:fileId', authMiddleware, (req, res) => {
+  handleFileAccess(req, res, true);
 });
 
 module.exports = router; 
