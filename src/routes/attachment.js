@@ -3,6 +3,7 @@ const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const ResponseUtil = require('../utils/response');
 
 /**
  * 文件信息存储类
@@ -27,12 +28,15 @@ class FileStorage {
    */
   generateFileInfo(file) {
     const fileId = Date.now().toString(36) + Math.random().toString(36).substr(2);
+    // 确保文件名已经被正确解码
+    console.log(file);
+    const fileName = file.originalname;
     return {
       id: fileId,
-      fileName: file.originalname,
+      fileName: fileName,
       fileType: file.mimetype,
       fileSize: file.size,
-      extension: path.extname(file.originalname)
+      extension: path.extname(fileName)
     };
   }
 
@@ -91,6 +95,40 @@ class FileStorage {
       }
     });
   }
+
+  /**
+   * 删除文件
+   * @param {string} fileId - 文件ID
+   * @returns {Promise<boolean>} 删除是否成功
+   */
+  async deleteFile(fileId) {
+    return new Promise((resolve, reject) => {
+      try {
+        const fileInfo = this.getFileInfo(fileId);
+        if (!fileInfo) {
+          resolve(false);
+          return;
+        }
+
+        const filePath = this.getFilePath(fileInfo);
+        const infoPath = path.join(this.uploadDir, `${fileId}.json`);
+
+        // 删除文件
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+
+        // 删除文件信息
+        if (fs.existsSync(infoPath)) {
+          fs.unlinkSync(infoPath);
+        }
+
+        resolve(true);
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
 }
 
 const fileStorage = new FileStorage();
@@ -102,49 +140,72 @@ const storage = multer.diskStorage({
   },
   filename: function (req, file, cb) {
     const fileId = Date.now().toString(36) + Math.random().toString(36).substr(2);
-    cb(null, `${fileId}${path.extname(file.originalname)}`);
+    // 解决中文文件名问题
+    const originalname = decodeURIComponent(file.originalname);
+    console.log('originalname',originalname);
+    file.originalname = originalname;
+    cb(null, `${fileId}${path.extname(originalname)}`);
   }
 });
 
-const upload = multer({ storage: storage });
+const upload = multer({ 
+  storage: storage,
+  limits: {
+    files: 50,               // 最多50个文件
+    fileSize: 10 * 1024 * 1024  // 每个文件最大 10MB
+  },
+  fileFilter: function (req, file, cb) {
+    console.log('start',file);
+    // 解决中文文件名问题
+    file.originalname = Buffer.from(file.originalname, 'latin1').toString('utf8');
+    // 允许所有文件类型
+    cb(null, true);
+  }
+});
 
 // 认证中间件
 const authMiddleware = (req, res, next) => {
-  // 支持两种认证方式
   const headerToken = req.headers.authorization?.replace('Bearer ', '');
   const queryToken = req.query.token;
   const token = headerToken || queryToken;
   console.log('token', token);
   if (!token || token !== 'speed-test-token') {
-    return res.status(401).json({ error: '无权限访问' });
+    return res.status(401).json(ResponseUtil.unauthorized());
   }
   next();
 };
 
 // 上传接口
-router.post('/upload', upload.single('image'), async (req, res) => {
+router.post('/upload', authMiddleware, upload.array('files[]', 50), async (req, res) => {
   try {
-    if (!req.file) {
-      return res.status(400).json({ error: '请选择要上传的图片' });
+    console.log('接收到的文件:', req.files);
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json(ResponseUtil.error('请选择要上传的文件', 400));
     }
 
-    // 保存文件并获取文件信息
-    const fileInfo = await fileStorage.saveFile(req.file);
+    // 批量保存文件
+    const fileInfos = await Promise.all(
+      req.files.map(file => fileStorage.saveFile(file))
+    );
     
-    res.json({
-      message: '上传成功',
-      data: {
+    res.json(ResponseUtil.success(
+      fileInfos.map(fileInfo => ({
         id: fileInfo.id,
         fileName: fileInfo.fileName,
         fileType: fileInfo.fileType,
-        fileSize: fileInfo.fileSize,
-        previewUrl: `/preview/${fileInfo.id}`,
-        downloadUrl: `/download/${fileInfo.id}`
-      }
-    });
+        fileSize: fileInfo.fileSize
+      })),
+      '上传成功'
+    ));
   } catch (error) {
+    if (error.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json(ResponseUtil.error('文件大小超出限制（最大10MB）', 400));
+    }
+    if (error.code === 'LIMIT_FILE_COUNT') {
+      return res.status(400).json(ResponseUtil.error('文件数量超出限制（最多50个）', 400));
+    }
     console.error('文件上传失败:', error);
-    res.status(500).json({ error: '文件上传失败' });
+    res.status(500).json(ResponseUtil.error('文件上传失败'));
   }
 });
 
@@ -159,12 +220,12 @@ const handleFileAccess = (req, res, isDownload = false) => {
   const fileInfo = fileStorage.getFileInfo(fileId);
   
   if (!fileInfo) {
-    return res.status(404).json({ error: '文件不存在' });
+    return res.status(404).json(ResponseUtil.notFound('文件不存在'));
   }
   
   const filePath = fileStorage.getFilePath(fileInfo);
   if (!fs.existsSync(filePath)) {
-    return res.status(404).json({ error: '文件不存在' });
+    return res.status(404).json(ResponseUtil.notFound('文件不存在'));
   }
   
   // 设置响应头
@@ -177,7 +238,9 @@ const handleFileAccess = (req, res, isDownload = false) => {
     });
 
     res.setHeader('Content-Type', 'application/octet-stream');
-    res.setHeader('Content-Disposition', `attachment; filename="${fileInfo.fileName}"`);
+    // 对文件名进行 URI 编码，并添加 UTF-8 编码声明
+    const encodedFilename = encodeURIComponent(fileInfo.fileName);
+    res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodedFilename}`);
     res.setHeader('Content-Length', fileInfo.fileSize);
     
     // 使用直接读取方式
@@ -194,7 +257,10 @@ const handleFileAccess = (req, res, isDownload = false) => {
     }
   } else {
     res.setHeader('Content-Type', fileInfo.fileType);
-    res.setHeader('Content-Disposition', `inline; filename="${fileInfo.fileName}"`);
+    console.log(fileInfo.fileName)
+    // 对文件名进行 URI 编码，并添加 UTF-8 编码声明
+    const encodedFilename = encodeURIComponent(fileInfo.fileName);
+    res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodedFilename}`);
     res.sendFile(filePath);
   }
 };
@@ -207,6 +273,28 @@ router.get('/preview/:fileId', authMiddleware, (req, res) => {
 // 下载接口
 router.get('/download/:fileId', authMiddleware, (req, res) => {
   handleFileAccess(req, res, true);
+});
+
+/**
+ * 删除文件接口
+ * @route DELETE /attachment/delete/:fileId
+ * @param {string} fileId - 文件ID
+ * @returns {Object} 删除结果
+ */
+router.delete('/delete/:fileId', authMiddleware, async (req, res) => {
+  try {
+    const fileId = req.params.fileId;
+    const success = await fileStorage.deleteFile(fileId);
+
+    if (!success) {
+      return res.status(404).json(ResponseUtil.notFound('文件不存在'));
+    }
+
+    res.json(ResponseUtil.success(null, '文件删除成功'));
+  } catch (error) {
+    console.error('文件删除失败:', error);
+    res.status(500).json(ResponseUtil.error('文件删除失败'));
+  }
 });
 
 module.exports = router; 
