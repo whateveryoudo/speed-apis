@@ -175,14 +175,37 @@ const authMiddleware = (req, res, next) => {
   next();
 };
 
-// 上传接口
-router.post('/upload', authMiddleware, upload.array('files[]', 50), async (req, res) => {
+// 单文件上传接口
+router.post('/upload/single', authMiddleware, upload.single('file'), async (req, res) => {
   try {
-    console.log('接收到的文件:', req.files);
+    if (!req.file) {
+      return res.status(400).json(ResponseUtil.error('请选择要上传的文件', 400));
+    }
+    
+    const fileInfo = await fileStorage.saveFile(req.file);
+    
+    res.json(ResponseUtil.success({
+      id: fileInfo.id,
+      fileName: fileInfo.fileName,
+      fileType: fileInfo.fileType,
+      fileSize: fileInfo.fileSize
+    }, '上传成功'));
+  } catch (error) {
+    if (error.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json(ResponseUtil.error('文件大小超出限制（最大10MB）', 400));
+    }
+    console.error('文件上传失败:', error);
+    res.status(500).json(ResponseUtil.error('文件上传失败'));
+  }
+});
+
+// 批量文件上传接口
+router.post('/upload/multi', authMiddleware, upload.array('files[]', 50), async (req, res) => {
+  try {
     if (!req.files || req.files.length === 0) {
       return res.status(400).json(ResponseUtil.error('请选择要上传的文件', 400));
     }
-
+    
     // 批量保存文件
     const fileInfos = await Promise.all(
       req.files.map(file => fileStorage.saveFile(file))
