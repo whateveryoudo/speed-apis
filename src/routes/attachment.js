@@ -4,6 +4,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const ResponseUtil = require('../utils/response');
+const { authMiddleware, onlyofficeAuthMiddleware } = require('../config/auth');
 
 /**
  * 文件信息存储类
@@ -163,20 +164,11 @@ const upload = multer({
   }
 });
 
-// 认证中间件
-const authMiddleware = (req, res, next) => {
-  const headerToken = req.headers.authorization?.replace('Bearer ', '');
-  const queryToken = req.query.token;
-  const token = headerToken || queryToken;
-  console.log('token', token);
-  if (!token || token !== 'speed-test-token') {
-    return res.status(401).json(ResponseUtil.unauthorized());
-  }
-  next();
-};
+// 使用共享的认证中间件
 
 // 单文件上传接口
 router.post('/upload/single', authMiddleware, upload.single('file'), async (req, res) => {
+  console.log('进入了 ')
   try {
     if (!req.file) {
       return res.status(400).json(ResponseUtil.error('请选择要上传的文件', 400));
@@ -288,11 +280,16 @@ const handleFileAccess = (req, res, isDownload = false) => {
   }
 };
 
-// 预览接口
-router.get('/preview/:fileId', authMiddleware, (req, res) => {
+// 预览接口(用于web端访问，建议仅图片使用)
+router.get('/preview/:fileId', onlyofficeAuthMiddleware, (req, res) => {
+  console.log('进入了')
   handleFileAccess(req, res, false);
 });
-
+// 这里另起一个接口（用于onlyoffice访问）
+router.get('/onlyoffice/preview/:fileId', onlyofficeAuthMiddleware, (req, res) => {
+  console.log('进入了')
+  handleFileAccess(req, res, false);
+});
 // 下载接口
 router.get('/download/:fileId', authMiddleware, (req, res) => {
   handleFileAccess(req, res, true);

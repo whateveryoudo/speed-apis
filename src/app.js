@@ -1,8 +1,9 @@
 const express = require('express');
 const attachmentRoutes = require('./routes/attachment');
+const onlyofficeRoutes = require('./routes/onlyoffice');
 
 const app = express();
-const port = process.env.PORT || 4000;
+const port = process.env.PORT || 3005;
 
 // 配置 body-parser 中间件
 app.use(express.json()); // 解析 JSON 请求体
@@ -10,6 +11,7 @@ app.use(express.urlencoded({ extended: true })); // 解析 URL 编码的请求�
 
 // 使用路由
 app.use('/attachment', attachmentRoutes);
+app.use('/onlyoffice', onlyofficeRoutes);
 
 // 错误处理中间件
 app.use((err, req, res, next) => {
