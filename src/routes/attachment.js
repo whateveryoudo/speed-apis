@@ -168,7 +168,7 @@ const upload = multer({
 
 // 单文件上传接口
 router.post('/upload/single', authMiddleware, upload.single('file'), async (req, res) => {
-  console.log('进入了 ')
+  console.log('进入了')
   try {
     if (!req.file) {
       return res.status(400).json(ResponseUtil.error('请选择要上传的文件', 400));
@@ -243,20 +243,20 @@ const handleFileAccess = (req, res, isDownload = false) => {
     return res.status(404).json(ResponseUtil.notFound('文件不存在'));
   }
   
-  // 设置响应头
-  if (isDownload) {
-    console.log('开始下载文件:', {
-      fileId,
-      fileName: fileInfo.fileName,
-      fileSize: fileInfo.fileSize,
-      filePath
-    });
+      // 设置响应头
+    if (isDownload) {
+      console.log('开始下载文件:', {
+        fileId,
+        fileName: fileInfo.fileName,
+        fileSize: fileInfo.fileSize,
+        filePath
+      });
 
-    res.setHeader('Content-Type', 'application/octet-stream');
-    // 对文件名进行 URI 编码，并添加 UTF-8 编码声明
-    const encodedFilename = encodeURIComponent(fileInfo.fileName);
-    res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodedFilename}`);
-    res.setHeader('Content-Length', fileInfo.fileSize);
+      res.setHeader('Content-Type', 'application/octet-stream');
+      // 设置文件名，使用标准的 filename*=UTF-8'' 格式
+      const encodedFilename = encodeURIComponent(fileInfo.fileName);
+      res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodedFilename}`);
+      res.setHeader('Content-Length', fileInfo.fileSize);
     
     // 使用直接读取方式
     try {
@@ -273,15 +273,15 @@ const handleFileAccess = (req, res, isDownload = false) => {
   } else {
     res.setHeader('Content-Type', fileInfo.fileType);
     console.log(fileInfo.fileName)
-    // 对文件名进行 URI 编码，并添加 UTF-8 编码声明
+    // 设置文件名，使用标准的 filename*=UTF-8'' 格式
     const encodedFilename = encodeURIComponent(fileInfo.fileName);
-    res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodedFilename}`);
+    res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodedFilename}`)
     res.sendFile(filePath);
   }
 };
 
 // 预览接口(用于web端访问，建议仅图片使用)
-router.get('/preview/:fileId', onlyofficeAuthMiddleware, (req, res) => {
+router.get('/preview/:fileId', authMiddleware, (req, res) => {
   console.log('进入了')
   handleFileAccess(req, res, false);
 });
@@ -294,7 +294,10 @@ router.get('/onlyoffice/preview/:fileId', onlyofficeAuthMiddleware, (req, res) =
 router.get('/download/:fileId', authMiddleware, (req, res) => {
   handleFileAccess(req, res, true);
 });
-
+// 下载接口
+router.get('/onlyoffice/download/:fileId', onlyofficeAuthMiddleware, (req, res) => {
+  handleFileAccess(req, res, true);
+});
 /**
  * 删除文件接口
  * @route DELETE /attachment/delete/:fileId

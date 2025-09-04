@@ -12,7 +12,13 @@ const authMiddleware = (req, res, next) => {
     const headerToken = req.headers.authorization?.replace('Bearer ', '');
     const queryToken = req.query.token;
     const token = headerToken || queryToken;
-    
+    if (token === 'speed-test-token') { // 测试token直接放行
+      req.user = {
+        username: 'speed-test-user',
+      };
+      next();
+      return;
+    }
     if (!token) {
       return res.status(401).json(ResponseUtil.error('未提供认证令牌', 401));
     }

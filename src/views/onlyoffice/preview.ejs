@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= fileName %> - OnlyOffice 预览</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #f5f5f5;
+        }
+        .onlyoffice-page {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        .header {
+            background: #fff;
+            padding: 15px 20px;
+            border-bottom: 1px solid #e0e0e0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 16px;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 18px;
+            color: #333;
+            font-weight: 500;
+        }
+        .header .file-info {
+            margin-top: 5px;
+            font-size: 14px;
+            color: #666;
+        }
+        .onlyoffice-container {
+            flex: 1;
+            background: #fff;
+            border-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            position: relative;
+        }
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #666;
+            font-size: 16px;
+        }
+        .error {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #dc3545;
+            font-size: 16px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="onlyoffice-page">
+        <div id="onlyoffice-container" class="onlyoffice-container">
+            <div class="loading">正在加载 OnlyOffice 编辑器...</div>
+        </div>
+    </div>
+
+    <!-- OnlyOffice 文档编辑器 API -->
+    <script src="<%= onlyofficeServerUrl %>/web-apps/apps/api/documents/api.js"></script>
+    
+    <script>
+        // 配置信息
+        const config = <%- configJson %>;
+        let docEditorInstance = null;
+        
+        // 初始化编辑器
+        async function initEditor() {
+            try {
+                const container = document.getElementById('onlyoffice-container');
+                container.innerHTML = '';
+                
+                // 检查文件类型，图片和视频需要特殊处理
+                if (config.fileTypeInfo && config.fileTypeInfo.isImage) {
+                    // 图片文件使用HTML5 img标签
+                    showImagePreview(container, config);
+                } else if (config.fileTypeInfo && config.fileTypeInfo.isVideo) {
+                    // 视频文件使用HTML5 video标签
+                    showVideoPreview(container, config);
+                } else {
+                    // 文档文件使用OnlyOffice编辑器
+                    showDocumentEditor(container, config);
+                }
+                
+            } catch (error) {
+                console.error('初始化失败:', error);
+                const container = document.getElementById('onlyoffice-container');
+                container.innerHTML = '<div class="error">初始化失败: ' + error.message + '</div>';
+            }
+        }
+        
+        // 显示图片预览
+        function showImagePreview(container, config) {
+            const imgContainer = document.createElement('div');
+            imgContainer.style.height = '100%';
+            imgContainer.style.display = 'flex';
+            imgContainer.style.flexFlow = 'column';
+            imgContainer.style.alignItems = 'center';
+            imgContainer.style.justifyContent = 'center';
+            const img = document.createElement('img');
+            img.src = config.document.url + '?token=' + config.token; // 这里需要追加token
+            img.style.maxWidth = '100%';
+            img.style.maxHeight = '100%';
+            img.style.objectFit = 'contain';
+            img.alt = config.document.title;
+            
+            
+            imgContainer.appendChild(img);
+            container.appendChild(imgContainer);
+        }
+        
+        // 显示视频预览
+        function showVideoPreview(container, config) {
+            const videoContainer = document.createElement('div');
+            videoContainer.style.height = '100%';
+            videoContainer.style.display = 'flex';
+            videoContainer.style.flexFlow = 'column';
+            videoContainer.style.alignItems = 'center';
+            videoContainer.style.justifyContent = 'center';
+            const video = document.createElement('video');
+            video.src = config.document.url + '?token=' + config.token;
+            video.controls = true;
+            // 固定一个宽高
+            video.style.maxWidth = '500px';
+            video.style.maxHeight = '500px';
+            video.style.objectFit = 'contain';
+            
+            videoContainer.appendChild(video);
+            
+            container.appendChild(videoContainer);
+        }
+        
+        // 显示文档编辑器
+        function showDocumentEditor(container, config) {
+            // 检查 OnlyOffice API 是否可用
+            if (typeof DocsAPI === 'undefined') {
+                throw new Error('OnlyOffice API 未加载，请检查网络连接');
+            }
+            
+            // 创建编辑器实例
+            docEditorInstance = new DocsAPI.DocEditor('onlyoffice-container', config);
+            
+            // 编辑器加载完成
+            docEditorInstance.events.on('documentReady', function() {
+                console.log('OnlyOffice 编辑器加载完成');
+            });
+            
+            // 错误处理
+            docEditorInstance.events.on('error', function(event) {
+                console.error('编辑器错误:', event);
+                container.innerHTML = '<div class="error">编辑器加载失败: ' + (event.data || '未知错误') + '</div>';
+            });
+        }
+        
+        // 页面加载完成后初始化编辑器
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initEditor);
+        } else {
+            initEditor();
+        }
+        
+        // 页面卸载时清理编辑器实例
+        window.addEventListener('beforeunload', function() {
+            if (docEditorInstance) {
+                try {
+                    docEditorInstance.destroyEditor();
+                } catch (e) {
+                    console.log('销毁编辑器实例失败:', e);
+                }
+            }
+        });
+    </script>
+</body>
+</html>
