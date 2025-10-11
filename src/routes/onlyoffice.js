@@ -231,13 +231,13 @@ router.post("/config", authMiddleware, (req, res) => {
 });
 
 /**
- * 提供 OnlyOffice 预览页面
- * @route GET /onlyoffice/previewFile/:fileId
+ * 提供 OnlyOffice 预览页面（支持大多数文件类型）
+ * @route GET /onlyoffice/filePreview/:fileId
  * @param {string} fileId - 文件ID
  * @query {string} [mode] - 预览模式，'view' 或 'edit'，默认 'view'
  * @returns {string} HTML 页面
  */
-router.get("/previewFile/:fileId", authMiddleware, (req, res) => {
+router.get("/filePreview/:fileId", authMiddleware, (req, res) => {
   try {
     const { fileId } = req.params;
     const { mode = "view" } = req.query;

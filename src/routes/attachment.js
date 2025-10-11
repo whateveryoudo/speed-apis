@@ -285,19 +285,12 @@ router.get('/preview/:fileId', authMiddleware, (req, res) => {
   console.log('进入了')
   handleFileAccess(req, res, false);
 });
-// 这里另起一个接口（用于onlyoffice访问）
-router.get('/onlyoffice/preview/:fileId', onlyofficeAuthMiddleware, (req, res) => {
-  console.log('进入了')
-  handleFileAccess(req, res, false);
-});
+
 // 下载接口
 router.get('/download/:fileId', authMiddleware, (req, res) => {
   handleFileAccess(req, res, true);
 });
-// 下载接口
-router.get('/onlyoffice/download/:fileId', onlyofficeAuthMiddleware, (req, res) => {
-  handleFileAccess(req, res, true);
-});
+
 /**
  * 删除文件接口
  * @route DELETE /attachment/delete/:fileId
