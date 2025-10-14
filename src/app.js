@@ -4,7 +4,7 @@ const cors = require('cors');
 const attachmentRoutes = require('./routes/attachment');
 const onlyofficeRoutes = require('./routes/onlyoffice');
 const userRoutes = require('./routes/user');
-const aiRoutes = require('./routes/ai');
+const aiDoubaoRoutes = require('./routes/ai/doubao');
 
 const app = express();
 const port = process.env.PORT || 3005;
@@ -34,7 +34,7 @@ app.use(express.urlencoded({ extended: true })); // 解析 URL 编码的请求�
 app.use('/attachment', attachmentRoutes);
 app.use('/onlyoffice', onlyofficeRoutes);
 app.use('/user', userRoutes);
-app.use('/ai', aiRoutes);
+app.use('/ai/doubao', aiRoutes); // 提供豆包大模型
 // 错误处理中间件
 app.use((err, req, res, next) => {
   console.error('服务器错误:', err);

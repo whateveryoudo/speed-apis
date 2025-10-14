@@ -1,6 +1,7 @@
 const express = require('express');
 const axios = require('axios');
 const router = express.Router();
+const { authMiddleware } = require('../../config/auth');
 
 // 火山引擎 API 配置
 const VOLC_API_KEY = process.env.VOLC_API_KEY;
@@ -10,7 +11,7 @@ const VOLC_MODEL = process.env.VOLC_MODEL;
 /**
  * AI 文本处理 - 通用接口
  */
-router.post('/process', async (req, res) => {
+router.post('/process', authMiddleware, async (req, res) => {
   try {
     const { action, content, customPrompt } = req.body;
 
@@ -78,7 +79,7 @@ router.post('/process', async (req, res) => {
 /**
  * AI 流式处理接口 - 支持 SSE (Server-Sent Events)
  */
-router.post('/stream', async (req, res) => {
+router.post('/stream', authMiddleware, async (req, res) => {
   try {
     const { action, content, customPrompt } = req.body;
 
@@ -165,7 +166,7 @@ router.post('/stream', async (req, res) => {
 /**
  * 健康检查接口
  */
-router.get('/health', (req, res) => {
+router.get('/health', authMiddleware, (req, res) => {
   res.json({
     status: 'ok',
     service: 'AI Service',
