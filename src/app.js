@@ -1,12 +1,15 @@
 const express = require('express');
+const expressWs = require('express-ws');
 const path = require('path');
 const cors = require('cors');
 const attachmentRoutes = require('./routes/attachment');
 const onlyofficeRoutes = require('./routes/onlyoffice');
 const userRoutes = require('./routes/user');
 const aiDoubaoRoutes = require('./routes/ai/doubao');
-
-const app = express();
+const documentRoutes = require('./routes/document');
+const hocuspocusServer = require('./routes/collaboration');
+// 使用express-ws扩展Express应用
+const { app } = expressWs(express());
 const port = process.env.PORT || 3005;
 
 // 配置 CORS 跨域
@@ -34,7 +37,42 @@ app.use(express.urlencoded({ extended: true })); // 解析 URL 编码的请求�
 app.use('/attachment', attachmentRoutes);
 app.use('/onlyoffice', onlyofficeRoutes);
 app.use('/user', userRoutes);
-app.use('/ai/doubao', aiRoutes); // 提供豆包大模型
+app.use('/ai/doubao', aiDoubaoRoutes); // 提供豆包大模型
+app.use('/documents', documentRoutes); // 文档管理接口
+// 添加WebSocket路由用于Hocuspocus协同编辑
+app.ws('/collaboration', (websocket, request) => {
+  // 从查询参数中获取文档名和用户信息
+  const urlParams = new URLSearchParams(request.url.split('?')[1] || '');
+  const documentName = urlParams.get('documentName');
+  
+  // 构建上下文数据
+  const context = {
+    documentName,
+    user: {
+      id: urlParams.get('userId') || 'anonymous',
+      name: urlParams.get('userName') || '匿名用户'
+    },
+    requestParameters: {
+      documentName
+    }
+  };
+  
+  console.log(`WebSocket连接建立: ${context.user.name} - 文档: ${documentName}`);
+  
+  // 处理WebSocket连接
+  hocuspocusServer.handleConnection(websocket, request, context);
+});
+
+// 添加服务状态检查接口
+app.get('/collaboration/status', (req, res) => {
+  res.json({
+    status: 'running',
+    url: `ws://localhost:${port}/collaboration`,
+    message: '协同编辑服务已启动'
+  });
+});
+
+
 // 错误处理中间件
 app.use((err, req, res, next) => {
   console.error('服务器错误:', err);
@@ -42,13 +80,18 @@ app.use((err, req, res, next) => {
 });
 
 if (require.main === module) {
+
   app.listen(port, () => {
-    console.log(`\n🚀 服务器运行在 http://localhost:${port}`);
-    console.log(`📝 OnlyOffice 预览: http://localhost:${port}/onlyoffice/preview`);
+    console.log(`🎉 Server is running on http://localhost:${port}`);
+    console.log(`📄 OnlyOffice预览服务: http://localhost:${port}/onlyoffice/preview`);
     console.log(`🎯 演示页面: http://localhost:${port}/onlyoffice/demo`);
-    console.log(`🤖 AI 接口: http://localhost:${port}/ai/health`);
-    console.log(`✅ CORS 已启用，允许前端 http://localhost:3003 访问\n`);
+    console.log(`🤖 AI接口: http://localhost:${port}/ai/doubao`);
+    console.log(`📑 文档管理接口: http://localhost:${port}/documents`);
+    console.log(`🔄 协同编辑服务状态: http://localhost:${port}/collaboration/status`);
+    console.log(`🌐 协同编辑WebSocket: ws://localhost:${port}/collaboration`);
+    console.log(`💡 WebSocket连接示例: ws://localhost:${port}/collaboration?documentName=example&userId=user123&userName=张三`);
+    console.log(`✅ CORS 已启用，允许前端 http://localhost:3003 访问`);
   });
 }
 
-module.exports = app; 
+module.exports = app;
