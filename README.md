@@ -1,188 +1,244 @@
-# 图片服务
-
-一个简单的图片上传和预览服务，使用 Express.js 构建。
-
-## 功能特性
-
-- 图片上传接口
-- 带认证的图片预览接口
-- 本地文件存储
-- documents.sql为协同的文档表结构，目前字段很简单，仅做演示使用
-
-## 安装
-
-```bash
-npm install
-```
-
-## 运行
-
-开发模式：
-```bash
-npm run dev
-```
-
-生产模式：
-```bash
-npm start
-```
-
-## API 接口
-
-### 上传图片
-
-- 方法：POST
-- 路径：/upload
-- 参数：form-data 中的 image 字段
-- 返回：
-  ```json
-  {
-    "message": "上传成功",
-    "filename": "文件名",
-    "path": "/preview/文件名"
-  }
-  ```
-
-### 预览图片
-
-- 方法：GET
-- 路径：/preview/:filename
-- 请求头：Authorization: Bearer your-secret-token
-- 返回：图片文件
-
-## 注意事项
-
-1. 请确保在请求预览接口时携带正确的认证信息
-2. 上传的图片将保存在 uploads 目录中
-3. 默认端口为 3000，可通过环境变量 PORT 修改
-
 # Speed APIs
 
-一个基于 Node.js + Express 的 API 服务项目。
+一个基于 Node.js + Express 的 API 服务项目，提供文件管理、OnlyOffice 文档预览编辑、AI 文本处理和实时协同编辑功能。
+
+> **⚠️ 警告**  
+> 此项目仅为编辑器和组件提供示例响应，请勿直接用在实际项目中！
 
 ## 功能特性
 
-- 文件上传和管理
-- OnlyOffice 文档预览和编辑
-- JWT 身份认证
-- 文件附件处理
+- 📁 **文件上传和管理** - 支持单文件/多文件上传、预览、下载、删除 (目前文件存放在本地目录，未存放数据库，请自行手动清除)
+- 📄 **OnlyOffice 文档预览编辑** - 支持 Word、Excel、PowerPoint 等格式在线预览和编辑
+- 🤖 **AI 文本处理** - 基于火山引擎大模型，支持文本改进、翻译、总结等功能
+- 🔄 **实时协同编辑** - 基于 Hocuspocus + Yjs 的实时协同文档编辑
+- 🔐 **JWT 身份认证** - 统一的认证体系
 
-## 安装和运行
+## 快速开始
+
+### 1. 安装依赖
 
 ```bash
 npm install
+```
+
+### 2. 配置环境变量
+
+创建 `.env` 文件：
+
+```env
+# 服务器配置
+PORT=3005
+
+# JWT 认证
+AUTH_JWT_SECRET=your-jwt-secret-key
+
+# OnlyOffice 配置
+ONLYOFFICE_JWT_SECRET=your-onlyoffice-secret
+ONLYOFFICE_SERVER_URL=https://your-onlyoffice-server
+
+# 火山引擎 AI 配置（可选）
+VOLC_API_KEY=your-api-key-here
+VOLC_ENDPOINT=https://ark.cn-beijing.volces.com/api/v3
+VOLC_MODEL=ep-xxxxxxxx-xxxxx
+
+# 数据库配置（用于协同编辑）
+DB_HOST=localhost
+DB_USER=root
+DB_PASSWORD=your-password
+DB_NAME=your-database
+```
+
+### 3. 初始化数据库
+
+执行 `documents.sql` 创建协同编辑所需的文档表。
+
+### 4. 启动服务
+
+```bash
+# 开发模式（支持热重载）
+npm run dev
+
+# 生产模式
 npm start
 ```
 
-服务器将在 http://localhost:3005 启动。
+服务启动后访问：`http://localhost:3005`
 
 ## API 接口
 
-### 文件上传
+### 用户认证
 
-- `POST /attachment/upload` - 上传文件
-- `GET /attachment/download/:fileId` - 下载文件
-- `GET /attachment/onlyoffice/preview/:fileId` - OnlyOffice 预览文件
+```bash
+POST /user/login
+# 请求体: { "username": "ykx", "password": "123456" }
+# 返回: { "token": "xxx", ... }
+```
 
-### OnlyOffice 集成
+### 文件管理
 
-#### 方案一：API 接口方式
+```bash
+# 上传文件（需要认证）
+POST /attachment/upload/single
+POST /attachment/upload/multi
 
-- `POST /onlyoffice/login` - 用户登录获取 JWT token
-- `POST /onlyoffice/verify` - 验证 JWT token
-- `POST /onlyoffice/refresh` - 刷新 JWT token
-- `POST /onlyoffice/config` - 获取 OnlyOffice 配置（需要认证）
+# 预览文件
+GET /attachment/preview/:fileId
 
-**使用流程：**
-1. 调用登录接口获取 token
-2. 使用 token 调用 `/onlyoffice/config` 接口获取配置
-3. 前端使用返回的配置初始化 `DocsAPI.DocEditor`
+# 下载文件
+GET /attachment/download/:fileId
 
-#### 方案二：静态预览页面方式（推荐）
+# 删除文件
+DELETE /attachment/delete/:fileId
+```
 
-- `GET /onlyoffice/preview` - 预览入口页面
-- `GET /onlyoffice/preview/:fileId` - 直接预览指定文件
+### OnlyOffice 文档预览
 
-**使用方式：**
-1. 直接访问 `http://localhost:3005/onlyoffice/preview` 进入预览入口页面
-2. 输入文件ID和选择预览模式
-3. 或者直接访问 `http://localhost:3005/onlyoffice/preview/{fileId}?mode=view` 进行预览
+```bash
+# 方式一：直接访问预览页面（推荐）
+GET /onlyoffice/filePreview/:fileId?mode=view
+# mode 可选: view（预览）| edit（编辑）
 
-**优势：**
-- 前端无需发送 API 请求
-- 直接通过 URL 访问，支持书签和分享
-- 内置模式切换（预览/编辑）
-- 响应式设计，支持移动端
+# 方式二：获取配置后前端集成
+POST /onlyoffice/config
+# 请求头: Authorization: Bearer {token}
+# 请求体: { "fileId": "xxx", "mode": "view" }
+```
 
-## 配置说明
+### AI 文本处理
 
-### 环境变量
+```bash
+# 非流式处理
+POST /ai/doubao/process
+# 请求头: Authorization: Bearer {token}
+# 请求体: {
+#   "action": "refactor",  # refactor|check|simple|rich|translate|summary|custom
+#   "content": "要处理的文本",
+#   "customPrompt": "自定义提示词（可选）"
+# }
 
-- `PORT` - 服务器端口（默认 3005）
-- `AUTH_JWT_SECRET` - JWT 认证密钥
-- `ONLYOFFICE_JWT_SECRET` - OnlyOffice 签名密钥
+# 流式处理（SSE）
+POST /ai/doubao/stream
+# 同上，返回 Server-Sent Events 流式数据
 
-### OnlyOffice 服务器
+# 健康检查
+GET /ai/doubao/health
+```
 
-需要配置 OnlyOffice 文档服务器地址，在预览页面的 HTML 中修改：
+**action 说明：**
+- `refactor` - 改进写作
+- `check` - 检查拼写和语法
+- `simple` - 简化内容
+- `rich` - 丰富内容
+- `translate` - 中英互译
+- `summary` - 总结
+- `custom` - 自定义（需提供 customPrompt）
 
-```html
-<script src="https://your-onlyoffice-server/web-apps/apps/api/documents/api.js"></script>
+### 协同编辑
+
+```bash
+# WebSocket 连接
+ws://localhost:3005/collaboration?documentName=example&userId=user123&userName=张三
+
+# 服务状态检查
+GET /collaboration/status
+```
+
+### 文档管理
+
+```bash
+# 获取文档列表
+GET /documents
+
+# 删除文档
+DELETE /documents/:name
 ```
 
 ## 使用示例
 
-### 方案一：API 方式
+### OnlyOffice 预览
 
 ```javascript
-// 1. 登录获取 token
-const loginResponse = await fetch('/onlyoffice/login', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ username: 'ykx', password: '123456' })
-});
-const { token } = await loginResponse.json();
+// 直接访问预览页面
+window.location.href = '/onlyoffice/filePreview/your-file-id?mode=view';
+```
 
-// 2. 获取 OnlyOffice 配置
-const configResponse = await fetch('/onlyoffice/config', {
+### AI 文本处理
+
+```javascript
+// 调用 AI 处理接口
+const response = await fetch('/ai/doubao/process', {
   method: 'POST',
-  headers: { 
+  headers: {
     'Content-Type': 'application/json',
     'Authorization': `Bearer ${token}`
   },
-  body: JSON.stringify({ fileId: 'your-file-id', mode: 'view' })
+  body: JSON.stringify({
+    action: 'refactor',
+    content: '需要改进的文本'
+  })
 });
-const { config } = await configResponse.json();
-
-// 3. 初始化编辑器
-const docEditor = new DocsAPI.DocEditor('placeholder', config);
+const { result } = await response.json();
 ```
 
-### 方案二：静态页面方式
+### 协同编辑（前端）
 
 ```javascript
-// 直接跳转到预览页面
-window.location.href = '/onlyoffice/preview/your-file-id?mode=view';
+import * as Y from 'yjs'
+import { HocuspocusProvider } from '@hocuspocus/provider'
 
-// 或者在新窗口打开
-window.open('/onlyoffice/preview/your-file-id?mode=edit', '_blank');
+const ydoc = new Y.Doc()
+const provider = new HocuspocusProvider({
+  url: 'ws://localhost:3005',
+  name: 'document-name',
+  document: ydoc,
+  // 可选参数
+  parameters: {
+    documentName: 'document-name',
+    userId: 'user123',
+    userName: '张三'
+  }
+})
+
+// 使用 Yjs 的协同数据结构（如 Y.Text）
+const ytext = ydoc.getText('content')
+```
+
+## 配置说明
+
+### 火山引擎 AI 配置
+
+1. **创建 API Key**：访问 [火山引擎控制台](https://console.volcengine.com/ark) → API Key 管理
+2. **创建推理接入点**：选择模型（推荐 `doubao-pro-32k`），获取接入点 ID
+3. **选择地域**：
+   - 华北-北京：`https://ark.cn-beijing.volces.com/api/v3`
+   - 华东-上海：`https://ark.cn-shanghai.volces.com/api/v3`
+   - 华南-广州：`https://ark.cn-guangzhou.volces.com/api/v3`
+
+### OnlyOffice 服务器
+
+需要在 `.env` 中配置 `ONLYOFFICE_SERVER_URL`，或在预览页面的 HTML 中修改 OnlyOffice API 脚本地址。
+
+## 项目结构
+
+```
+src/
+├── app.js              # 主应用文件
+├── config/             # 配置文件（auth、onlyoffice、upload）
+├── routes/             # 路由文件
+│   ├── ai/             # AI 相关路由
+│   ├── attachment.js   # 文件上传管理
+│   ├── onlyoffice.js   # OnlyOffice 预览编辑
+│   ├── collaboration.js # 协同编辑服务
+│   ├── document.js     # 文档管理
+│   └── user.js         # 用户认证
+├── utils/              # 工具函数
+└── views/              # 视图模板
 ```
 
 ## 注意事项
 
-1. 确保 OnlyOffice 文档服务器可访问
+1. 所有需要认证的接口都需要在请求头中携带 `Authorization: Bearer {token}`
 2. 文件上传后会在 `uploads/` 目录生成对应的 JSON 信息文件
-3. 预览页面支持的文件类型：Word、Excel、PowerPoint 等
-4. 编辑模式需要 OnlyOffice 服务器支持相应权限
-
-## 开发说明
-
-项目结构：
-```
-src/
-├── app.js              # 主应用文件
-├── config/             # 配置文件
-├── routes/             # 路由文件
-├── utils/              # 工具函数
-└── uploads/            # 上传文件存储目录
-```
+3. 协同编辑需要先执行 `documents.sql` 创建数据库表
+4. AI 功能需要配置火山引擎 API Key 才能使用
+5. 确保 OnlyOffice 文档服务器可访问
