@@ -258,26 +258,26 @@ const handleFileAccess = (req, res, isDownload = false) => {
       res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodedFilename}`);
       res.setHeader('Content-Length', fileInfo.fileSize);
     
-    // 使用直接读取方式
-    try {
-      const fileContent = fs.readFileSync(filePath);
-      console.log('文件读取完成，大小:', fileContent.length);
-      res.send(fileContent);
-      console.log('文件发送完成');
-    } catch (error) {
-      console.error('文件读取失败:', error);
-      if (!res.headersSent) {
-        res.status(500).json({ error: '文件读取失败' });
+      // 使用直接读取方式
+      try {
+        const fileContent = fs.readFileSync(filePath);
+        console.log('文件读取完成，大小:', fileContent.length);
+        res.send(fileContent);
+        console.log('文件发送完成');
+      } catch (error) {
+        console.error('文件读取失败:', error);
+        if (!res.headersSent) {
+          res.status(500).json({ error: '文件读取失败' });
+        }
       }
+    } else {
+      res.setHeader('Content-Type', fileInfo.fileType);
+      console.log(fileInfo.fileName)
+      // 设置文件名，使用标准的 filename*=UTF-8'' 格式
+      const encodedFilename = encodeURIComponent(fileInfo.fileName);
+      res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodedFilename}`)
+      res.sendFile(filePath);
     }
-  } else {
-    res.setHeader('Content-Type', fileInfo.fileType);
-    console.log(fileInfo.fileName)
-    // 设置文件名，使用标准的 filename*=UTF-8'' 格式
-    const encodedFilename = encodeURIComponent(fileInfo.fileName);
-    res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodedFilename}`)
-    res.sendFile(filePath);
-  }
 };
 
 // 预览接口(用于web端访问，建议仅图片使用)
